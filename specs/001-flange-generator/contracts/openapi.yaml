@@ -1,0 +1,249 @@
+openapi: 3.1.0
+info:
+  title: Flange Generator API
+  version: 1.0.0
+  description: |
+    無狀態 API：每個端點接收同一份 FlangeSpecification JSON，
+    即時生成回應，不持久化任何結果。
+    用途：業務人員為客戶產出鼓風機入口法蘭預覽與檔案。
+    依 Constitution v2.1.0 與 spec.md FR-001 ~ FR-027。
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /api/flange/preview:
+    post:
+      summary: 產生 SVG 預覽
+      description: |
+        依輸入規格產生 2D 工程圖 SVG，含英文標註與浮水印。
+        對應 spec.md FR-010 ~ FR-012、US1。
+        SLO：95% 請求於 5 秒內完成（SC-002）。
+      operationId: generatePreview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlangeSpecification'
+      responses:
+        '200':
+          description: SVG 工程圖
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/flange/dwg:
+    post:
+      summary: 下載 DWG (R2000) 檔案
+      description: |
+        依輸入規格產生 AutoCAD R2000 DWG 檔，含英文標註與浮水印。
+        對應 spec.md FR-013、FR-015、US2。
+        SLO：95% 請求於 3 秒內開始回傳（SC-003）。
+      operationId: downloadDwg
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlangeSpecification'
+      responses:
+        '200':
+          description: DWG R2000 二進位檔
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: 'attachment; filename="flange_100x200_PCD150_8H_20t_20260518T143022.dwg"'
+          content:
+            application/acad:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          description: ODA File Converter 不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/flange/pdf:
+    post:
+      summary: 下載 PDF (A4 直式) 檔案
+      description: |
+        依輸入規格產生 A4 直式 PDF：含法蘭工程圖、規格純表格、浮水印、產生時間。
+        對應 spec.md FR-014、FR-016、US2。
+        SLO：95% 請求於 3 秒內開始回傳（SC-003）。
+      operationId: downloadPdf
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlangeSpecification'
+      responses:
+        '200':
+          description: PDF 檔
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: 'attachment; filename="flange_100x200_PCD150_8H_20t_20260518T143022.pdf"'
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/health:
+    get:
+      summary: Service health check
+      description: 確認後端服務可用，且 ODA File Converter 已正確安裝。
+      operationId: getHealth
+      responses:
+        '200':
+          description: 健康
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, oda_converter_available]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  oda_converter_available:
+                    type: boolean
+                  version:
+                    type: string
+
+components:
+  schemas:
+    FlangeSpecification:
+      type: object
+      required:
+        - inner_diameter_mm
+        - pcd_mm
+        - outer_diameter_mm
+        - bolt_hole_count
+        - bolt_hole_diameter_mm
+        - thickness_mm
+        - material
+      properties:
+        inner_diameter_mm:
+          type: number
+          format: float
+          exclusiveMinimum: 0
+          multipleOf: 0.01
+          description: 內徑（mm），≤ 2 位小數
+          example: 100.00
+        pcd_mm:
+          type: number
+          format: float
+          exclusiveMinimum: 0
+          multipleOf: 0.01
+          description: Pitch Circle Diameter（mm），MUST > 內徑 < 外徑
+          example: 150.00
+        outer_diameter_mm:
+          type: number
+          format: float
+          exclusiveMinimum: 0
+          multipleOf: 0.01
+          description: 外徑（mm），MUST > PCD
+          example: 200.00
+        bolt_hole_count:
+          type: integer
+          minimum: 1
+          description: 螺栓孔數
+          example: 8
+        bolt_hole_diameter_mm:
+          type: number
+          format: float
+          exclusiveMinimum: 0
+          multipleOf: 0.01
+          description: |
+            螺栓孔徑（mm），MUST <（外徑 − PCD）/2 與 (PCD − 內徑)/2
+          example: 12.00
+        thickness_mm:
+          type: number
+          format: float
+          exclusiveMinimum: 0
+          multipleOf: 0.01
+          description: 法蘭厚度（mm）
+          example: 20.00
+        material:
+          type: string
+          enum: [SS400]
+          description: 材質。v1 僅 SS400。
+          example: SS400
+
+    ValidationErrorItem:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          description: 欄位名稱（snake_case，對應 schema property）
+          example: pcd_mm
+        message:
+          type: string
+          description: 英文錯誤訊息
+          example: PCD must be greater than inner diameter
+
+    ErrorResponse:
+      type: object
+      required: [errors]
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorItem'
+
+  responses:
+    ValidationError:
+      description: 輸入規格驗證失敗
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            geometryViolation:
+              summary: 幾何不合理
+              value:
+                errors:
+                  - field: pcd_mm
+                    message: PCD must be greater than inner diameter
+            holeOverflow:
+              summary: 孔徑過大
+              value:
+                errors:
+                  - field: bolt_hole_diameter_mm
+                    message: Bolt hole diameter would overlap inner or outer edge
+            materialLocked:
+              summary: 材質非 SS400
+              value:
+                errors:
+                  - field: material
+                    message: Only SS400 is supported in v1
+
+    InternalError:
+      description: 後端內部錯誤（CAD 函式庫例外、檔案 IO 失敗等）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
