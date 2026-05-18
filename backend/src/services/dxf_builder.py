@@ -16,6 +16,7 @@ from ezdxf.document import Drawing
 
 from src.lib.annotations import add_dimensions
 from src.lib.geometry import bolt_hole_positions
+from src.lib.isometric_view import add_isometric_inset
 from src.lib.layers import ALL_LAYERS, CENTERLINE, HOLES, OUTLINE
 from src.lib.watermark import insert_dxf_watermark
 
@@ -71,6 +72,7 @@ def build_dxf_document(spec: "FlangeSpecification") -> Drawing:
 
     # Dimensions + spec annotations (English) and watermark
     add_dimensions(doc, spec)
+    add_isometric_inset(doc, spec)
     insert_dxf_watermark(doc, radius_mm=outer_r)
 
     return doc

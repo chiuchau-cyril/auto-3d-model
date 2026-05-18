@@ -48,12 +48,30 @@ def _inject_searchable_text(svg_xml: str, lines: list[str]) -> str:
 
 
 def render_svg(doc: "Drawing") -> bytes:
-    msp = doc.modelspace()
-    ctx = RenderContext(doc)
-    backend = SVGBackend()
-    Frontend(ctx, backend).draw_layout(msp, finalize=True)
+    """Render the doc to SVG with the WATERMARK layer hidden.
 
-    page = layout.Page(width=210, height=210, units=layout.Units.mm)
-    xml = backend.get_string(page)
+    The watermark stays in the DXF (so DWG downloads contain it), and the
+    PDF renderer adds its own diagonal overlay. But on the in-browser
+    preview the rotated text obstructs the drawing, so we turn the layer
+    off before rendering and the strings remain in the hidden text overlay
+    for accessibility / extraction.
+    """
+    msp = doc.modelspace()
+
+    watermark_layer = doc.layers.get("WATERMARK") if "WATERMARK" in doc.layers else None
+    was_off = watermark_layer.is_off() if watermark_layer is not None else False
+    if watermark_layer is not None and not was_off:
+        watermark_layer.off()
+
+    try:
+        ctx = RenderContext(doc)
+        backend = SVGBackend()
+        Frontend(ctx, backend).draw_layout(msp, finalize=True)
+        page = layout.Page(width=210, height=210, units=layout.Units.mm)
+        xml = backend.get_string(page)
+    finally:
+        if watermark_layer is not None and not was_off:
+            watermark_layer.on()
+
     xml_with_text = _inject_searchable_text(xml, _extract_text_lines(doc))
     return xml_with_text.encode("utf-8")

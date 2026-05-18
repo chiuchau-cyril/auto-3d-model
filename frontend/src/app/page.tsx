@@ -31,13 +31,16 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 p-6">
-      <header>
+      <header className="flex flex-col gap-2">
         <h1 className="text-xl font-semibold text-slate-900">
           鼓風機入口法蘭產生器
         </h1>
-        <p className="text-xs text-slate-500">
+        <div
+          role="note"
+          className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800"
+        >
           For Customer Preview Only — Not for Manufacturing
-        </p>
+        </div>
       </header>
 
       <div className="grid flex-1 gap-4 md:grid-cols-[360px_1fr]">
