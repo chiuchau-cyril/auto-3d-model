@@ -229,6 +229,8 @@ frontend/tsconfig.tsbuildinfo
 # Whitelist project source lib/ directories that the generic `lib/` rule above swallows.
 !backend/src/lib/
 !backend/src/lib/**
+!frontend/src/lib/
+!frontend/src/lib/**
 
 # Local frontend env (kept gitignored explicitly)
 frontend/.env.local
