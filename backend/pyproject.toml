@@ -2,7 +2,7 @@
 name = "flange-generator-backend"
 version = "0.1.0"
 description = "Blower inlet flange DWG/PDF/SVG generator backend"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 
 [tool.ruff]
 line-length = 100
